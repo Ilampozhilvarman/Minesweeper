@@ -84,6 +84,19 @@ impl Position {
     fn type_of_square_bottom_right(&self, board: &Board) -> Option<SquareType> {
         self.type_at_offset(board, 1, 1)
     }
+
+    fn find_all(&self, board: &Board) -> [Option<SquareType>; 8] {
+        [
+            self.type_of_square_left(board),
+            self.type_of_square_right(board),
+            self.type_of_square_up(board),
+            self.type_of_square_down(board),
+            self.type_of_square_top_left(board),
+            self.type_of_square_top_right(board),
+            self.type_of_square_bottom_left(board),
+            self.type_of_square_bottom_right(board),
+        ]
+    }
 }
 
 impl SquareType {
@@ -93,7 +106,20 @@ impl SquareType {
 }
 
 impl Square {
-    fn assign_value(&mut self) {}
+    fn assign_value(&mut self, board: &Board) {
+        if self.s_type.is_mine() {
+            self.s_type = SquareType::Mine;
+        } else {
+            let list: [Option<SquareType>; 8] = self.pos.find_all(board);
+            let mut counter: u32 = 0;
+            for square_type in list {
+                if square_type == Some(SquareType::Mine) {
+                    counter += 1;
+                }
+            }
+            self.s_type = SquareType::Safe(counter);
+        }
+    }
 }
 
 #[get("/")]
