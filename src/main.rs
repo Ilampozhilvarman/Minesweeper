@@ -29,9 +29,18 @@ fn hello(name: &str) -> String {
     format!("Hello, {}!", name)
 }
 
+#[get("/game")]
+async fn game() -> Option<NamedFile> {
+    open_file(File {
+        folder: "templates",
+        name: "game.html",
+    })
+    .await
+}
+
 #[launch]
 fn rocket() -> _ {
     rocket::build()
-        .mount("/", routes![index, hello])
+        .mount("/", routes![index, hello, game])
         .mount("/static", FileServer::from(relative!("static")))
 }

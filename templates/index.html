@@ -4,14 +4,25 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Minesweeper</title>
+	<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <h1>Minesweeper</h1>
-    <input type="range" min="2" max="100">
-    <form action="/start">
-        <button type="submit">
-            Start
-        </button>
+    <header>
+        <h1>Minesweeper</h1>
+        <hr>
+    </header>
+    <form action="/game" class="card">
+        <label for="width">Grid width: <span id="width-value">10</span></label>
+        <input type="range" id="width" name="width" min="2" max="100" value="10">
+
+        <label for="height">Grid height: <span id="height-value">10</span></label>
+        <input type="range" id="height" name="height" min="2" max="100" value="10">
+
+        <label for="mines">Mine percentage: <span id="mines-value">20</span>%</label>
+        <input type="range" id="mines" name="mines" min="1" max="100" value="20">
+
+        <button type="submit">Start</button>
     </form>
+    <script src="/static/script.js"></script>
 </body>
 </html>
