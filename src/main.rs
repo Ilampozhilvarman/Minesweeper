@@ -44,6 +44,18 @@ impl Board {
             .iter()
             .find(|s| s.pos.row == row && s.pos.column == column)
     }
+
+    fn assign_all_squares_values(&mut self, percentage: u32, grid_size: u32) {
+        let square_size: u32 = grid_size * grid_size;
+        let mut current_pos = Position { row: 1, column: 1 };
+        for x in 1..=square_size {
+            for y in 1..square_size {
+                SquareType::new(s_type: SquareType::Mine, pos: Position {
+
+                });
+            }
+        }
+    }
 }
 
 impl Position {
@@ -106,19 +118,12 @@ impl SquareType {
 }
 
 impl Square {
-    fn assign_value(&mut self, board: &Board) {
-        if self.s_type.is_mine() {
-            self.s_type = SquareType::Mine;
-        } else {
-            let list: [Option<SquareType>; 8] = self.pos.find_all(board);
-            let mut counter: u32 = 0;
-            for square_type in list {
-                if square_type == Some(SquareType::Mine) {
-                    counter += 1;
-                }
-            }
-            self.s_type = SquareType::Safe(counter);
-        }
+    fn assign_value(&mut self, value: SquareType) {
+        self.s_type = value;
+    }
+
+    fn new(s_type: SquareType, pos: Position) -> Self {
+        Self { s_type, pos }
     }
 }
 
