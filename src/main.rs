@@ -1,10 +1,8 @@
 #[macro_use]
 extern crate rocket;
+use rand::seq::SliceRandom;
 
-use rocket::{
-    fs::{FileServer, NamedFile, relative},
-    time::format_description::modifier::WeekNumberIso,
-};
+use rocket::fs::{FileServer, NamedFile, relative};
 use std::path::Path;
 
 struct File<'a> {
@@ -46,13 +44,44 @@ impl Board {
     }
 
     fn assign_all_squares_values(&mut self, percentage: u32, grid_size: u32) {
-        let square_size: u32 = grid_size * grid_size;
-        let mut current_pos = Position { row: 1, column: 1 };
-        for x in 1..=square_size {
-            for y in 1..square_size {
-                SquareType::new(s_type: SquareType::Mine, pos: Position {
+        let total = grid_size * grid_size;
+        let mine_count = (total * percentage / 100) as usize;
 
-                });
+        let mut is_mine = vec![false; total as usize];
+        for flag in is_mine.iter_mut().take(mine_count) {
+            *flag = true;
+        }
+        is_mine.shuffle(&mut rand::rng());
+
+        self.squares.clear();
+        for row in 1..=grid_size {
+            for column in 1..=grid_size {
+                let index = ((row - 1) * grid_size + (column - 1)) as usize;
+                let s_type = if is_mine[index] {
+                    SquareType::Mine
+                } else {
+                    SquareType::Safe(0)
+                };
+                self.squares
+                    .push(Square::new(s_type, Position { row, column }));
+            }
+        }
+
+        let counts: Vec<u32> = self
+            .squares
+            .iter()
+            .map(|s| {
+                s.pos
+                    .find_all(self)
+                    .iter()
+                    .filter(|t| matches!(t, Some(SquareType::Mine)))
+                    .count() as u32
+            })
+            .collect();
+
+        for (square, count) in self.squares.iter_mut().zip(counts) {
+            if !square.s_type.is_mine() {
+                square.assign_value(SquareType::Safe(count));
             }
         }
     }
