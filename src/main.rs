@@ -1,8 +1,9 @@
 #[macro_use]
 extern crate rocket;
-use rand::seq::SliceRandom;
 
+use rand::seq::SliceRandom;
 use rocket::fs::{FileServer, NamedFile, relative};
+use rocket::serde::{Serialize, json::Json};
 use std::path::Path;
 
 struct File<'a> {
@@ -33,19 +34,33 @@ struct Square {
 }
 
 struct Board {
+    width: u32,
+    height: u32,
     squares: Vec<Square>,
 }
 
 impl Board {
-    fn find_square(&self, row: u32, column: u32) -> Option<&Square> {
-        self.squares
-            .iter()
-            .find(|s| s.pos.row == row && s.pos.column == column)
+    fn new(width: u32, height: u32, percentage: u32) -> Self {
+        let mut board = Board {
+            width,
+            height,
+            squares: Vec::new(),
+        };
+        board.assign_all_squares_values(percentage);
+        board
     }
 
-    fn assign_all_squares_values(&mut self, percentage: u32, grid_size: u32) {
-        let total = grid_size * grid_size;
-        let mine_count = (total * percentage / 100) as usize;
+    fn find_square(&self, row: u32, column: u32) -> Option<&Square> {
+        if row < 1 || column < 1 || row > self.height || column > self.width {
+            return None;
+        }
+        self.squares
+            .get(((row - 1) * self.width + (column - 1)) as usize)
+    }
+
+    fn assign_all_squares_values(&mut self, percentage: u32) {
+        let total = self.width * self.height;
+        let mine_count = (total * percentage / 100).clamp(1, total - 1) as usize;
 
         let mut is_mine = vec![false; total as usize];
         for flag in is_mine.iter_mut().take(mine_count) {
@@ -54,9 +69,9 @@ impl Board {
         is_mine.shuffle(&mut rand::rng());
 
         self.squares.clear();
-        for row in 1..=grid_size {
-            for column in 1..=grid_size {
-                let index = ((row - 1) * grid_size + (column - 1)) as usize;
+        for row in 1..=self.height {
+            for column in 1..=self.width {
+                let index = ((row - 1) * self.width + (column - 1)) as usize;
                 let s_type = if is_mine[index] {
                     SquareType::Mine
                 } else {
@@ -67,17 +82,20 @@ impl Board {
             }
         }
 
-        let counts: Vec<u32> = self
-            .squares
-            .iter()
-            .map(|s| {
-                s.pos
-                    .find_all(self)
-                    .iter()
-                    .filter(|t| matches!(t, Some(SquareType::Mine)))
-                    .count() as u32
-            })
-            .collect();
+        let counts: Vec<u32> = {
+            let board = &*self;
+            board
+                .squares
+                .iter()
+                .map(|s| {
+                    s.pos
+                        .find_all(board)
+                        .iter()
+                        .filter(|t| matches!(t, Some(SquareType::Mine)))
+                        .count() as u32
+                })
+                .collect()
+        };
 
         for (square, count) in self.squares.iter_mut().zip(counts) {
             if !square.s_type.is_mine() {
@@ -156,6 +174,18 @@ impl Square {
     }
 }
 
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+struct BoardResponse {
+    width: u32,
+    height: u32,
+    cells: Vec<i32>,
+}
+
+fn valid_settings(width: u32, height: u32, mines: u32) -> bool {
+    (2..=100).contains(&width) && (2..=100).contains(&height) && (1..=100).contains(&mines)
+}
+
 #[get("/")]
 async fn index() -> Option<NamedFile> {
     open_file(File {
@@ -172,6 +202,9 @@ fn hello(name: &str) -> String {
 
 #[get("/game?<width>&<height>&<mines>")]
 async fn game(width: u32, height: u32, mines: u32) -> Option<NamedFile> {
+    if !valid_settings(width, height, mines) {
+        return None;
+    }
     open_file(File {
         folder: "templates",
         name: "game.html",
@@ -179,9 +212,30 @@ async fn game(width: u32, height: u32, mines: u32) -> Option<NamedFile> {
     .await
 }
 
+#[get("/board?<width>&<height>&<mines>")]
+fn board_data(width: u32, height: u32, mines: u32) -> Option<Json<BoardResponse>> {
+    if !valid_settings(width, height, mines) {
+        return None;
+    }
+    let board = Board::new(width, height, mines);
+    let cells = board
+        .squares
+        .iter()
+        .map(|s| match s.s_type {
+            SquareType::Mine => -1,
+            SquareType::Safe(n) => n as i32,
+        })
+        .collect();
+    Some(Json(BoardResponse {
+        width,
+        height,
+        cells,
+    }))
+}
+
 #[launch]
 fn rocket() -> _ {
     rocket::build()
-        .mount("/", routes![index, hello, game])
+        .mount("/", routes![index, hello, game, board_data])
         .mount("/static", FileServer::from(relative!("static")))
 }
